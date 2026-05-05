@@ -601,6 +601,19 @@
   .mail-reply-trigger{display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,#3b5bdb,#4c6ef5);color:#fff;font-family:'Inter','DM Sans',sans-serif;font-size:13px;font-weight:600;padding:9px 20px;border-radius:10px;border:none;cursor:pointer;transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1);box-shadow:0 3px 10px rgba(59,91,219,0.28);}
   .mail-reply-trigger:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(59,91,219,0.42);}
   .mail-reply-trigger:active{transform:translateY(0);}
+  /* ── Gemini AI Enhance button ── */
+  .ai-enhance-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:none;cursor:pointer;font-family:'Inter','DM Sans',sans-serif;font-size:12px;font-weight:700;letter-spacing:0.2px;background:linear-gradient(135deg,#7c3aed,#4c6ef5);color:#fff;box-shadow:0 3px 12px rgba(124,58,237,0.3);transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1);position:relative;overflow:hidden;}
+  .ai-enhance-btn:hover{transform:translateY(-2px) scale(1.02);box-shadow:0 6px 20px rgba(124,58,237,0.45);}
+  .ai-enhance-btn:active{transform:scale(0.97);}
+  .ai-enhance-btn:disabled{opacity:0.65;cursor:not-allowed;transform:none;}
+  .ai-enhance-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(45deg,transparent 30%,rgba(255,255,255,0.15) 50%,transparent 70%);transform:translateX(-100%);transition:transform 0.4s ease;}
+  .ai-enhance-btn:hover::before{transform:translateX(100%);}
+  .ai-enhance-btn.loading{animation:aiPulse 1.2s ease-in-out infinite;}
+  @keyframes aiPulse{0%,100%{box-shadow:0 3px 12px rgba(124,58,237,0.3);}50%{box-shadow:0 3px 24px rgba(124,58,237,0.6);}}
+  .ai-status{font-size:11px;color:var(--purple);font-weight:500;display:none;align-items:center;gap:5px;}
+  .ai-status.visible{display:flex;}
+  .ai-spinner{width:12px;height:12px;border:2px solid rgba(124,58,237,0.25);border-top-color:#7c3aed;border-radius:50%;animation:spin 0.7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
   /* ── Bulk comms panel ── */
   .bulk-comms-page{padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;flex:1;}
   .bulk-comms-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--surface);}
@@ -1330,6 +1343,15 @@
             <button class="mail-rich-btn" type="button" onmousedown="mailRichLinkEvent(event)">Link</button>
           </div>
           <div class="mail-rich-editor" id="mail-reply-body-rich" contenteditable="true" data-placeholder="Write your reply..."></div>
+          <!-- AI Enhance bar -->
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0 4px;">
+            <button class="ai-enhance-btn" id="ai-enhance-reply-btn" onclick="geminiEnhanceReply()">
+              ✨ AI Enhance
+            </button>
+            <span class="ai-status" id="ai-reply-status">
+              <span class="ai-spinner"></span> Enhancing with Gemini…
+            </span>
+          </div>
           <div class="mail-actions">
             <span class="mail-status" id="mail-send-status">Draft not sent</span>
             <div style="display:flex;gap:8px;">
@@ -1423,10 +1445,20 @@
           </div>
         </div>
 
-        <!-- Preview -->
+        <!-- Preview + AI Enhance -->
         <div>
-          <span class="email-modal-label">Message Preview</span>
-          <textarea class="email-input" id="comm-preview" style="min-height:240px;margin-top:6px;" oninput="commPreviewEdited(this.value)"></textarea>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <span class="email-modal-label">Message Preview</span>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="ai-status" id="ai-comm-status">
+                <span class="ai-spinner"></span> Enhancing with Gemini…
+              </span>
+              <button class="ai-enhance-btn" id="ai-enhance-comm-btn" onclick="geminiEnhanceComm()">
+                ✨ AI Enhance
+              </button>
+            </div>
+          </div>
+          <textarea class="email-input" id="comm-preview" style="min-height:240px;" oninput="commPreviewEdited(this.value)"></textarea>
           <div style="margin-top:6px;font-size:11px;color:var(--text3);">Tip: You can directly edit the preview — placeholders stay in sync with the fields above.</div>
         </div>
 
@@ -6038,6 +6070,140 @@ document.addEventListener('DOMContentLoaded', function() {
     };
   }
 }, { once: true });
+</script>
+
+<script>
+/* ════════════════════════════════════════════════════════
+   GEMINI AI — Mail Enhance Module
+   Enhances / rephrases email drafts using Gemini 2.0 Flash
+   ════════════════════════════════════════════════════════ */
+const GEMINI_API_KEY = 'AIzaSyD9qXqu0g_wilPnhmE4c8iECLSvzHWFJik';
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+const GEMINI_SYSTEM_PROMPT = `You are an expert email writing assistant for an IIM Rohtak academic operations team.
+Your task is to rephrase and enhance the given email draft to make it:
+- Professional, warm, and courteous
+- Clear, concise and well-structured
+- Free of grammatical errors
+- Appropriate for student communication from an academic institution
+
+IMPORTANT RULES:
+- Preserve ALL factual details, dates, names, and links exactly as given
+- Do NOT add information that wasn't in the original
+- Return ONLY the enhanced email body text — no subject line, no "Here is the enhanced version:" or any preamble
+- Keep a similar length to the original`;
+
+/**
+ * Call Gemini API with a draft text and return the enhanced version.
+ */
+async function geminiEnhanceText(draftText) {
+  if (!draftText || !draftText.trim()) {
+    throw new Error('Please write something in the draft first.');
+  }
+
+  const payload = {
+    contents: [{
+      parts: [{
+        text: `${GEMINI_SYSTEM_PROMPT}\n\n--- EMAIL DRAFT ---\n${draftText.trim()}\n--- END DRAFT ---\n\nPlease enhance the above email draft now:`
+      }]
+    }],
+    generationConfig: {
+      temperature: 0.4,
+      maxOutputTokens: 1024,
+    }
+  };
+
+  const res = await fetch(GEMINI_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `API error ${res.status}`);
+  }
+
+  const data = await res.json();
+  const enhanced = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!enhanced) throw new Error('Gemini returned an empty response.');
+  return enhanced.trim();
+}
+
+/* ── Helpers to set button loading state ── */
+function aiSetLoading(btnId, statusId, loading) {
+  const btn    = document.getElementById(btnId);
+  const status = document.getElementById(statusId);
+  if (!btn || !status) return;
+  btn.disabled = loading;
+  btn.classList.toggle('loading', loading);
+  status.classList.toggle('visible', loading);
+}
+
+/* ── Enhance Reply Compose (rich editor) ── */
+async function geminiEnhanceReply() {
+  const editor = document.getElementById('mail-reply-body-rich');
+  if (!editor) return;
+
+  const draft = editor.innerText || editor.textContent || '';
+  if (!draft.trim()) {
+    showToast('Write your reply draft first, then click ✨ AI Enhance.', 'error');
+    return;
+  }
+
+  aiSetLoading('ai-enhance-reply-btn', 'ai-reply-status', true);
+  const statusEl = document.getElementById('mail-send-status');
+  if (statusEl) statusEl.textContent = '✨ Enhancing with Gemini…';
+
+  try {
+    const enhanced = await geminiEnhanceText(draft);
+    /* Replace editor content with enhanced text (preserving contenteditable) */
+    editor.innerText = enhanced;
+    /* Move cursor to end */
+    const range = document.createRange();
+    const sel   = window.getSelection();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(range);
+    editor.focus();
+    if (statusEl) statusEl.textContent = '✅ Enhanced by Gemini AI';
+    showToast('✨ Reply enhanced by Gemini AI!', 'success');
+  } catch (err) {
+    console.error('[Gemini]', err);
+    if (statusEl) statusEl.textContent = '⚠ Enhancement failed';
+    showToast('AI enhance failed: ' + err.message, 'error');
+  } finally {
+    aiSetLoading('ai-enhance-reply-btn', 'ai-reply-status', false);
+  }
+}
+
+/* ── Enhance Bulk Comms Preview textarea ── */
+async function geminiEnhanceComm() {
+  const preview = document.getElementById('comm-preview');
+  if (!preview) return;
+
+  const draft = preview.value || '';
+  if (!draft.trim()) {
+    showToast('The preview is empty. Load a template first, then click ✨ AI Enhance.', 'error');
+    return;
+  }
+
+  aiSetLoading('ai-enhance-comm-btn', 'ai-comm-status', true);
+
+  try {
+    const enhanced = await geminiEnhanceText(draft);
+    preview.value = enhanced;
+    /* Trigger sync with comm system if it exists */
+    if (typeof commPreviewEdited === 'function') commPreviewEdited(enhanced);
+    showToast('✨ Bulk message enhanced by Gemini AI!', 'success');
+  } catch (err) {
+    console.error('[Gemini]', err);
+    showToast('AI enhance failed: ' + err.message, 'error');
+  } finally {
+    aiSetLoading('ai-enhance-comm-btn', 'ai-comm-status', false);
+  }
+}
 </script>
 </body>
 </html>
