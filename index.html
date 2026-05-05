@@ -1384,7 +1384,11 @@
         <div class="bulk-comms-title">📨 Bulk Communications</div>
         <div class="bulk-comms-sub">Choose a template · fill placeholders · select students (excludes dropouts) · send via BCC</div>
       </div>
-      <div style="font-size:12px;color:var(--text3);">Google auth shared with the Student Mail tab</div>
+      <!-- Auth status shared from Student Mail -->
+      <div id="comm-auth-bar" style="display:flex;align-items:center;gap:10px;">
+        <span id="comm-auth-status-text" style="font-size:12px;color:var(--text3);">Checking auth…</span>
+        <button id="comm-auth-signin-btn" class="btn btn-primary" onclick="commSignInFromBulk()" style="display:none;font-size:12px;padding:6px 14px;">🔑 Sign in with Google</button>
+      </div>
     </div>
 
     <!-- Comms card -->
@@ -5374,8 +5378,9 @@ async function commSendTest() {
   await mailInitGoogleClients();
   if (!MAIL_OAUTH_CLIENT_ID) return showToast('Student Mail is not configured (missing OAuth client ID).', 'error');
   if (!MAIL_STATE.signedIn) {
-    showToast('Sign in on the Student Mail tab first, then send test again.', 'error');
-    switchTab('mail');
+    showToast('Please sign in with Google to send mail.', 'error');
+    /* Auto-trigger the sign-in flow right here */
+    if (typeof mailSignIn === 'function') mailSignIn();
     return;
   }
 
@@ -6032,6 +6037,51 @@ function mailHideCompose() {
   const head = document.getElementById('mail-thread-head');
   const hasThread = head && !head.querySelector('.mail-thread-title')?.textContent?.includes('No thread');
   if (bar && hasThread) bar.style.display = '';
+}
+
+/* ── Bulk Comms: auth status bar ── */
+function commUpdateAuthBar() {
+  const statusEl = document.getElementById('comm-auth-status-text');
+  const btnEl    = document.getElementById('comm-auth-signin-btn');
+  if (!statusEl || !btnEl) return;
+
+  if (MAIL_STATE.signedIn) {
+    statusEl.textContent = '✅ Signed in — ready to send';
+    statusEl.style.color = 'var(--green, #16a34a)';
+    btnEl.style.display  = 'none';
+  } else {
+    statusEl.textContent = '⚠ Not signed in';
+    statusEl.style.color = 'var(--amber, #d97706)';
+    btnEl.style.display  = '';
+  }
+}
+
+/* Call on tab activation & after auth state changes */
+document.addEventListener('DOMContentLoaded', function() {
+  /* Poll auth state every 2s to keep the bar in sync */
+  setInterval(commUpdateAuthBar, 2000);
+  /* Also update when switching to Bulk Comms tab */
+  const bulkBtn = document.getElementById('tab-btn-bulkcomms');
+  if (bulkBtn) bulkBtn.addEventListener('click', commUpdateAuthBar);
+}, { once: true });
+
+/* Patch mailRenderAuthState to also update comm bar */
+const _origMailRenderAuthState = window.mailRenderAuthState;
+if (typeof _origMailRenderAuthState === 'function') {
+  window.mailRenderAuthState = function(...args) {
+    _origMailRenderAuthState.apply(this, args);
+    commUpdateAuthBar();
+  };
+}
+
+/* Sign in from Bulk Comms tab directly */
+function commSignInFromBulk() {
+  if (typeof mailSignIn === 'function') {
+    mailSignIn();
+  } else {
+    switchTab('mail');
+    showToast('Please click "Sign in with Google" on the Student Mail tab.', 'error');
+  }
 }
 
 /* ── Patch mailOpenThread to show the Reply bar ── */
