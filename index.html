@@ -515,11 +515,11 @@
   .wa-note{background:var(--amber-bg);border:1px solid rgba(180,83,9,0.18);border-radius:var(--r-sm);padding:10px 14px;font-size:12px;color:var(--amber);display:flex;gap:8px;align-items:flex-start;margin-bottom:18px;}
   @media(max-width:640px){.wa-form-row{grid-template-columns:1fr;}}
 
-  /* Student Mail tab */
-  .mail-page{padding:20px 20px 20px calc(var(--sidebar-w) + 20px);}
-  .mail-shell{display:grid;grid-template-columns:350px minmax(0,1fr);gap:16px;min-height:70vh;}
-  .mail-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);}
-  .mail-left{display:flex;flex-direction:column;min-height:70vh;}
+  /* Student Mail tab — viewport-locked, no page scroll needed */
+  .mail-page{padding:0 0 0 var(--sidebar-w);height:calc(100vh - 56px);display:flex;flex-direction:column;overflow:hidden;}
+  .mail-shell{display:grid;grid-template-columns:350px minmax(0,1fr);gap:0;flex:1;overflow:hidden;min-height:0;}
+  .mail-card{background:var(--surface);border:1px solid var(--border);border-radius:0;}
+  .mail-left{display:flex;flex-direction:column;height:100%;overflow:hidden;border-right:1px solid var(--border);}
   .mail-tools{padding:12px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:10px;}
   .mail-search{width:100%;font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);color:var(--text);outline:none;}
   .mail-filter-row{display:flex;gap:7px;flex-wrap:wrap;}
@@ -539,12 +539,12 @@
   .mail-pill{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;color:#111;}
   .mail-pill.dm{background:#a3e635;}
   .mail-pill.pm{background:#60a5fa;color:#fff;}
-  .mail-right{display:flex;flex-direction:column;min-height:70vh;}
-  .mail-auth{padding:16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
-  .mail-thread-head{padding:10px 14px;border-bottom:1px solid var(--border2);display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--surface2);}
+  .mail-right{display:flex;flex-direction:column;height:100%;overflow:hidden;}
+  .mail-auth{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;flex-shrink:0;}
+  .mail-thread-head{padding:10px 14px;border-bottom:1px solid var(--border2);display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--surface2);flex-shrink:0;}
   .mail-thread-title{font-size:13px;font-weight:600;color:var(--text);}
   .mail-thread-sub{font-size:11px;color:var(--text3);}
-  .mail-thread{padding:14px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:10px;}
+  .mail-thread{padding:14px;overflow-y:auto;flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;}
   .mail-empty{padding:35px 20px;color:var(--text3);font-size:13px;text-align:center;}
   .mail-msg{border:1px solid var(--border);border-radius:10px;padding:9px 10px;max-width:88%;background:var(--surface2);}
   .mail-msg.in{align-self:flex-start;background:var(--surface2);}
@@ -561,7 +561,7 @@
   .mail-quoted-toggle{font-size:11px;background:var(--surface);border:1px solid var(--border);padding:4px 8px;border-radius:20px;cursor:pointer;color:var(--text2);}
   .mail-quoted-body{margin-top:8px;font-size:11px;line-height:1.5;color:var(--text3);white-space:pre-wrap;display:none;}
   .mail-quoted-body.open{display:block;}
-  .mail-compose{border-top:1px solid var(--border);padding:12px;display:grid;gap:9px;background:var(--surface);position:sticky;bottom:0;}
+  .mail-compose{border-top:1px solid var(--border);padding:12px;display:grid;gap:9px;background:var(--surface);flex-shrink:0;overflow-y:auto;max-height:55vh;}
   .mail-inline{display:grid;grid-template-columns:70px 1fr;align-items:center;gap:8px;}
   .mail-inline.compact{grid-template-columns:auto 1fr;}
   .mail-toggle-link{font-size:12px;color:var(--blue);cursor:pointer;background:none;border:none;padding:0;text-align:left;}
@@ -576,7 +576,7 @@
   .mail-rich-sep{width:1px;background:var(--border2);align-self:stretch;margin:0 2px;}
   .mail-rich-select{font-family:'DM Sans',sans-serif;font-size:12px;padding:4px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);outline:none;}
   .mail-rich-color{width:34px;height:28px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);padding:0 4px;}
-  .mail-rich-editor{min-height:140px;max-height:260px;overflow:auto;padding:12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);outline:none;color:var(--text);line-height:1.65;}
+  .mail-rich-editor{min-height:100px;max-height:180px;overflow:auto;padding:12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);outline:none;color:var(--text);line-height:1.65;}
   .mail-rich-editor:empty:before{content:attr(data-placeholder);color:var(--text3);}
   .mail-rich-editor *{max-width:100%;}
   .mail-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
@@ -587,7 +587,7 @@
   .mail-attach-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;font-size:11px;color:var(--text2);}
   .mail-attach-remove{background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;line-height:1;}
   .mail-fast-toggle{font-size:11px;color:var(--text2);display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border:1px solid var(--border);border-radius:20px;background:var(--surface2);}
-  @media(max-width:980px){.mail-shell{grid-template-columns:1fr;}.mail-left,.mail-right{min-height:unset;}}
+  @media(max-width:980px){.mail-page{height:auto;overflow:visible;}.mail-shell{grid-template-columns:1fr;height:auto;}.mail-left,.mail-right{height:auto;min-height:60vh;}.mail-thread{min-height:200px;}}
 
   /* ── Mail sub-tabs (Inbox vs Bulk Comms) ── */
   .mail-subtabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:0;}
@@ -6035,18 +6035,26 @@ if (typeof _origMailOpenThread === 'function') {
     const wrap = document.getElementById('mail-compose-wrap');
     if (bar)  bar.style.display  = '';
     if (wrap) wrap.style.display = 'none';
+    /* Scroll thread to bottom so newest message is visible */
+    const thread = document.getElementById('mail-thread');
+    if (thread) requestAnimationFrame(() => { thread.scrollTop = thread.scrollHeight; });
   };
 } else {
-  /* If mailOpenThread not yet defined, hook via MutationObserver on thread head */
+  /* Hook via MutationObserver on thread head */
   const threadHead = document.getElementById('mail-thread-head');
   if (threadHead) {
     new MutationObserver(() => {
-      const bar  = document.getElementById('mail-reply-bar');
-      const wrap = document.getElementById('mail-compose-wrap');
+      const bar   = document.getElementById('mail-reply-bar');
+      const wrap  = document.getElementById('mail-compose-wrap');
       const title = threadHead.querySelector('.mail-thread-title');
       const hasThread = title && !title.textContent.includes('No thread');
       if (bar)  bar.style.display  = hasThread ? '' : 'none';
-      if (wrap && hasThread === false) wrap.style.display = 'none';
+      if (wrap && !hasThread) wrap.style.display = 'none';
+      /* Scroll to bottom */
+      if (hasThread) {
+        const thread = document.getElementById('mail-thread');
+        if (thread) requestAnimationFrame(() => { thread.scrollTop = thread.scrollHeight; });
+      }
     }).observe(threadHead, { childList: true, subtree: true });
   }
 }
