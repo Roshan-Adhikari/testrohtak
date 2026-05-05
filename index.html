@@ -1405,9 +1405,9 @@
         <div id="comm-fields" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 12px;"></div>
 
         <!-- Subject -->
-        <div class="mail-inline">
-          <span class="mail-label">Subject</span>
-          <input class="mail-input" id="comm-subject" type="text" placeholder="Enter subject..." oninput="commUpdatePreview()">
+        <div>
+          <span class="mail-label" style="display:block;margin-bottom:6px;">Subject</span>
+          <input class="mail-input" id="comm-subject" type="text" placeholder="Enter subject..." oninput="commUpdatePreview()" style="width:100%;box-sizing:border-box;font-size:14px;padding:10px 14px;">
         </div>
 
         <!-- Recipient controls -->
