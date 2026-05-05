@@ -520,11 +520,15 @@
   .mail-shell{display:grid;grid-template-columns:350px minmax(0,1fr);gap:0;flex:1;overflow:hidden;min-height:0;}
   .mail-card{background:var(--surface);border:1px solid var(--border);border-radius:0;}
   .mail-left{display:flex;flex-direction:column;height:100%;overflow:hidden;border-right:1px solid var(--border);}
-  .mail-tools{padding:12px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:10px;}
-  .mail-search{width:100%;font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);color:var(--text);outline:none;}
-  .mail-filter-row{display:flex;gap:7px;flex-wrap:wrap;}
-  .mail-filter-btn{font-family:'DM Sans',sans-serif;font-size:12px;padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;}
-  .mail-filter-btn.active{background:var(--text);color:#fff;border-color:var(--text);}
+  .mail-tools{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:10px;background:var(--surface);}
+  .mail-search-wrap{position:relative;display:flex;align-items:center;}
+  .mail-search-icon{position:absolute;left:10px;color:var(--text3);font-size:14px;pointer-events:none;line-height:1;}
+  .mail-search{width:100%;font-family:'Inter','DM Sans',sans-serif;font-size:13px;padding:9px 10px 9px 34px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);color:var(--text);outline:none;transition:border-color 0.15s,box-shadow 0.15s;}
+  .mail-search:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,91,219,0.1);background:var(--surface);}
+  .mail-filter-row{display:flex;gap:6px;flex-wrap:wrap;}
+  .mail-filter-btn{font-family:'Inter','DM Sans',sans-serif;font-size:12px;font-weight:500;padding:5px 13px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;transition:all 0.15s cubic-bezier(0.34,1.56,0.64,1);}
+  .mail-filter-btn:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px);}
+  .mail-filter-btn.active{background:linear-gradient(135deg,#3b5bdb,#4c6ef5);color:#fff;border-color:transparent;box-shadow:0 3px 10px rgba(59,91,219,0.28);}
   .mail-list{overflow:auto;padding:6px;flex:1;}
   .mail-item{border:1px solid var(--border2);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;background:var(--surface);transition:all 0.15s;}
   .mail-item:hover{border-color:var(--border);transform:translateY(-1px);}
@@ -1233,7 +1237,10 @@
       <!-- LEFT: Thread list with filters -->
       <div class="mail-card mail-left">
         <div class="mail-tools">
-          <input class="mail-search" id="mail-search" type="text" placeholder="Search by student, subject, or batch" oninput="mailApplyFilters()">
+          <div class="mail-search-wrap">
+            <span class="mail-search-icon">🔍</span>
+            <input class="mail-search" id="mail-search" type="text" placeholder="Search by student, subject, or batch" oninput="mailApplyFilters()">
+          </div>
           <div class="mail-filter-row">
             <button class="mail-filter-btn active" id="mail-filter-all"    onclick="mailSetFilter('all', this)">All</button>
             <button class="mail-filter-btn"         id="mail-filter-dm"    onclick="mailSetFilter('dm', this)">DM only</button>
