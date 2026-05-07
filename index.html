@@ -2401,6 +2401,7 @@ const MAIL_STATE = {
   gapiReady: false,
   gisReady: false,
   tokenClient: null,
+  signedInEmail: '',
   accessToken: '',
   signedIn: false,
   loading: false,
@@ -2697,7 +2698,24 @@ function mailPrimaryAddress(headerValue) {
 
 function mailIsFromMe(fromHeader) {
   const sender = mailPrimaryAddress(fromHeader);
-  return sender === MAIL_INBOX_ADDRESS.toLowerCase();
+  const me = String(MAIL_STATE.signedInEmail || MAIL_INBOX_ADDRESS || '').toLowerCase();
+  return sender === me;
+}
+
+function mailCurrentSignedInAddress() {
+  return MAIL_STATE.signedInEmail || MAIL_INBOX_ADDRESS;
+}
+
+async function mailLoadSignedInProfile() {
+  if (!MAIL_STATE.signedIn || !window.gapi?.client?.gmail?.users?.getProfile) return '';
+  try {
+    const resp = await window.gapi.client.gmail.users.getProfile({ userId: 'me' });
+    const email = String(resp?.result?.emailAddress || '').trim().toLowerCase();
+    if (email) MAIL_STATE.signedInEmail = email;
+    return email;
+  } catch (_) {
+    return '';
+  }
 }
 
 function mailInitial(nameOrEmail) {
@@ -3146,6 +3164,7 @@ async function mailInitGoogleClients() {
           MAIL_STATE._restoredSession = false;
           MAIL_STATE.signedIn = true;
           window.gapi.client.setToken({ access_token: resp.access_token });
+          await mailLoadSignedInProfile();
           mailRenderAuthState();
           await mailLoadThreads();
           mailStartPolling();
@@ -3170,6 +3189,7 @@ function mailTryRestoreSessionToken() {
       MAIL_STATE.tokenExpiresAt = exp;
       MAIL_STATE.signedIn = true;
       window.gapi?.client?.setToken?.({ access_token: token });
+      setTimeout(() => { mailLoadSignedInProfile().then(() => mailRenderAuthState()); }, 0);
       MAIL_STATE._restoredSession = true;
       return true;
     }
@@ -3228,7 +3248,7 @@ function mailRenderAuthState() {
     composeBtn.style.display = '';
     refreshBtn.style.display = '';
     signoutBtn.style.display = '';
-    status.textContent = MAIL_STATE.loading ? 'Loading inbox...' : `Signed in as ${MAIL_INBOX_ADDRESS}`;
+    status.textContent = MAIL_STATE.loading ? 'Loading inbox...' : `Signed in as ${mailCurrentSignedInAddress()}`;
   }
 }
 
@@ -3254,6 +3274,7 @@ async function mailSignIn() {
 function mailSignOut() {
   const token = MAIL_STATE.accessToken;
   MAIL_STATE.accessToken = '';
+  MAIL_STATE.signedInEmail = '';
   MAIL_STATE.tokenExpiresAt = 0;
   MAIL_STATE._restoredSession = false;
   MAIL_STATE.signedIn = false;
@@ -3412,7 +3433,7 @@ async function mailLoadThreads(options = {}) {
       localStorage.setItem('mail_threads_cache_v2', JSON.stringify({ ts: Date.now(), threads: MAIL_STATE.threads.slice(0, 500) }));
     } catch (_) {}
 
-    const label = `Signed in as ${MAIL_INBOX_ADDRESS} — ${MAIL_STATE.threads.length} student thread${MAIL_STATE.threads.length !== 1 ? 's' : ''}`;
+    const label = `Signed in as ${mailCurrentSignedInAddress()} — ${MAIL_STATE.threads.length} student thread${MAIL_STATE.threads.length !== 1 ? 's' : ''}`;
     if (authEl) authEl.textContent = label;
     if (!silent) showToast(`${MAIL_STATE.threads.length} student threads loaded.`, 'success');
 
