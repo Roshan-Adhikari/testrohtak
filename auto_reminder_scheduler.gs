@@ -27,6 +27,7 @@
 const CONFIG = {
   RECIPIENT: 'roshan.adhikari@masaischool.com',
   TIMEZONE: 'Asia/Kolkata',
+  SENT_KEY_RETENTION_DAYS: 45,
   // Same public calendar CSVs used in dashboard:
   CALENDAR_CSV_URLS: [
     'https://docs.google.com/spreadsheets/d/e/2PACX-1vS0WR0axjp_GCJsm66wqgzy4Mel1RoOnDNNBmmfZOGVAszjEhdYM2gJquUhX89_sV1QPQF82NAadlIf/pub?gid=89700084&single=true&output=csv', // DM
@@ -47,6 +48,7 @@ function setupReminderTrigger() {
 function runReminderScheduler() {
   const now = new Date();
   const props = PropertiesService.getScriptProperties();
+  cleanupOldSentKeys_(props, now);
 
   const events = loadEventsFromCsvUrls_(CONFIG.CALENDAR_CSV_URLS);
   events.forEach(evt => {
@@ -77,7 +79,8 @@ function runReminderScheduler() {
 function loadEventsFromCsvUrls_(urls) {
   const out = [];
   urls.forEach(url => {
-    const csv = UrlFetchApp.fetch(url, { muteHttpExceptions: true }).getContentText();
+    const csv = fetchCsvWithRetry_(url, 3);
+    if (!csv) return;
     const rows = Utilities.parseCsv(csv || '');
     if (!rows.length) return;
 
@@ -117,6 +120,25 @@ function loadEventsFromCsvUrls_(urls) {
   });
 
   return out;
+}
+
+function fetchCsvWithRetry_(url, maxAttempts) {
+  let attempt = 0;
+  let lastError = null;
+  while (attempt < maxAttempts) {
+    attempt++;
+    try {
+      const resp = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+      const code = resp.getResponseCode();
+      if (code >= 200 && code < 300) return resp.getContentText();
+      lastError = new Error(`HTTP ${code}`);
+    } catch (err) {
+      lastError = err;
+    }
+    Utilities.sleep(300 * attempt);
+  }
+  Logger.log(`Failed to fetch CSV: ${url}. Error: ${lastError}`);
+  return '';
 }
 
 function classifyEvent_(evt) {
@@ -258,5 +280,17 @@ function makeEventId_(title, type, rawDate, timeText, program, link) {
 
 function formatDateTime_(d, fmt) {
   return Utilities.formatDate(d, CONFIG.TIMEZONE, fmt);
+}
+
+function cleanupOldSentKeys_(props, now) {
+  const all = props.getProperties();
+  const threshold = now.getTime() - (CONFIG.SENT_KEY_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  Object.keys(all).forEach(key => {
+    if (!key.startsWith('sent:')) return;
+    const ts = Date.parse(all[key] || '');
+    if (!isNaN(ts) && ts < threshold) {
+      props.deleteProperty(key);
+    }
+  });
 }
 

@@ -22,14 +22,7 @@
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<!-- Force unregister old service workers to fix Offline issue -->
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function(registrations) {
-      for(let registration of registrations) { registration.unregister(); }
-    });
-  }
-</script>
+<!-- Service worker registration is handled after app boot -->
 <style>
   :root {
     --bg:#f8f9fc; --surface:#ffffff; --surface2:#f1f3f9;
@@ -1364,7 +1357,7 @@
             <span class="mail-status" id="mail-send-status">Draft not sent</span>
             <div style="display:flex;gap:8px;">
               <button class="btn btn-ghost" onclick="mailHideCompose()">Discard</button>
-              <button class="btn btn-primary" onclick="mailSendReply()">Send Reply</button>
+              <button class="btn btn-primary" id="mail-send-btn" onclick="mailSendReply()">Send Reply</button>
             </div>
           </div>
         </div>
@@ -2302,17 +2295,25 @@ const ZOOM_LINKS = {
     batchName: 'IIMROH-DMAI-2603',
     meetingLink: 'https://us06web.zoom.us/j/85333641936',
     account: 'zoom_500_0072@masaischool.com',
-    password: 'Masai@190610',
-    hostKey: '190610',
+    password: '',
+    hostKey: '',
   },
   pm: {
     batchName: 'IIMROH-PMGM-2603',
     meetingLink: 'https://us06web.zoom.us/j/81269110578',
     account: 'zoom_500_0071@masaischool.com',
-    password: 'Masai@190610',
-    hostKey: '190610',
+    password: '',
+    hostKey: '',
   }
 };
+
+if (window.ZOOM_LINK_SECRETS && typeof window.ZOOM_LINK_SECRETS === 'object') {
+  Object.keys(ZOOM_LINKS).forEach(function (prog) {
+    const secret = window.ZOOM_LINK_SECRETS[prog] || {};
+    if (typeof secret.password === 'string') ZOOM_LINKS[prog].password = secret.password.trim();
+    if (typeof secret.hostKey === 'string') ZOOM_LINKS[prog].hostKey = secret.hostKey.trim();
+  });
+}
 
 // ══════════════════════════════════════════════════
 //  PROGRAM CONFIG
@@ -2390,7 +2391,7 @@ let _applyFiltersTimer = null;
 const PILL_STATE = { zoom: '', lms: '' };
 const GMAIL_DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest';
 const MAIL_OAUTH_SCOPES = 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify';
-const MAIL_OAUTH_CLIENT_ID = (window.MAIL_OAUTH_CLIENT_ID || localStorage.getItem('gmail_oauth_client_id') || '410817380647-jnnakifc7tojd6v6crvq1p7coge8qbgl.apps.googleusercontent.com').trim();
+const MAIL_OAUTH_CLIENT_ID = (window.MAIL_OAUTH_CLIENT_ID || localStorage.getItem('gmail_oauth_client_id') || '').trim();
 const MAIL_INBOX_ADDRESS = 'roshan.adhikari@masaischool.com';
 
 const MAIL_STATE = {
@@ -2600,6 +2601,43 @@ function mailFormatDate(ts) {
 
 function mailEscape(v) {
   return String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function mailIsValidEmail(value) {
+  const s = String(value || '').trim();
+  if (!s) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
+
+async function mailEnsureFreshToken() {
+  if (!MAIL_STATE.signedIn) return false;
+  const remaining = Number(MAIL_STATE.tokenExpiresAt || 0) - Date.now();
+  if (remaining > 45 * 1000) return true;
+  if (!MAIL_STATE.tokenClient) return false;
+  return new Promise((resolve) => {
+    const originalCallback = MAIL_STATE.tokenClient.callback;
+    MAIL_STATE.tokenClient.callback = async (resp) => {
+      MAIL_STATE.tokenClient.callback = originalCallback;
+      if (resp && resp.access_token) {
+        MAIL_STATE.accessToken = resp.access_token;
+        MAIL_STATE.tokenExpiresAt = Date.now() + ((resp.expires_in || 3600) * 1000) - 30_000;
+        try {
+          sessionStorage.setItem('mail_access_token', MAIL_STATE.accessToken);
+          sessionStorage.setItem('mail_token_expires_at', String(MAIL_STATE.tokenExpiresAt));
+        } catch (_) {}
+        window.gapi?.client?.setToken?.({ access_token: resp.access_token });
+        resolve(true);
+        return;
+      }
+      resolve(false);
+    };
+    try {
+      MAIL_STATE.tokenClient.requestAccessToken({ prompt: '' });
+    } catch (_) {
+      MAIL_STATE.tokenClient.callback = originalCallback;
+      resolve(false);
+    }
+  });
 }
 
 function mailDecodeBody(data) {
@@ -3197,7 +3235,12 @@ function mailRenderAuthState() {
 async function mailSignIn() {
   const btn = document.getElementById('mail-auth-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Preparing Google Sign-in...'; }
-  await mailInitGoogleClients();
+  const ok = await mailInitGoogleClients();
+  if (!ok) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Sign in with Google'; }
+    showToast('Google libraries are still loading. Please try again in a moment.', 'error');
+    return;
+  }
   if (!MAIL_STATE.tokenClient) {
     if (btn) { btn.disabled = false; btn.textContent = 'Sign in with Google'; }
     showToast('Google OAuth could not be initialized. Please refresh once.', 'error');
@@ -3243,6 +3286,7 @@ async function mailLoadThreads(options = {}) {
   const silent = !!options.silent;
   // Guard: don't start if already loading
   if (!MAIL_STATE.signedIn || !window.gapi || !window.gapi.client || MAIL_STATE.loading) return;
+  await mailEnsureFreshToken();
   MAIL_STATE.loading = true;
   mailRenderAuthState();
 
@@ -3599,12 +3643,23 @@ async function mailSendReply() {
     showToast('Please fill To, Subject, and message body.', 'error');
     return;
   }
+  const toList = to.split(',').map(x => x.trim()).filter(Boolean);
+  const ccList = cc ? cc.split(',').map(x => x.trim()).filter(Boolean) : [];
+  const bccList = bcc ? bcc.split(',').map(x => x.trim()).filter(Boolean) : [];
+  const invalid = [...toList, ...ccList, ...bccList].filter(x => !mailIsValidEmail(x));
+  if (invalid.length) {
+    showToast(`Invalid email address: ${invalid[0]}`, 'error');
+    return;
+  }
+  await mailEnsureFreshToken();
   const ok = confirmMailSend('Confirmation: Do you want to send this mail now?');
   if (!ok) {
     showToast('Send cancelled.', 'error');
     return;
   }
   const status = document.getElementById('mail-send-status');
+  const sendBtn = document.getElementById('mail-send-btn');
+  if (sendBtn) sendBtn.disabled = true;
   if (status) status.textContent = 'Sending...';
   const activeMessages = MAIL_STATE.activeThreadData?.messages || [];
   const lastMsg = activeMessages.length ? activeMessages[activeMessages.length - 1] : null;
@@ -3659,6 +3714,8 @@ async function mailSendReply() {
       const msg = fallbackErr?.result?.error?.message || fallbackErr?.message || 'Unknown error';
       showToast(`Failed to send: ${msg}`, 'error');
     }
+  } finally {
+    if (sendBtn) sendBtn.disabled = false;
   }
 }
 
@@ -4259,11 +4316,11 @@ function renderZoomTab() {
           </div>
           <div class="zoom-detail-row">
             <span class="zoom-detail-label">Password</span>
-            <span class="zoom-detail-val">${a.zl.password}</span>
+            <span class="zoom-detail-val">${a.zl.password ? 'Available to authorized operators' : 'Set via window.ZOOM_LINK_SECRETS'}</span>
           </div>
           <div class="zoom-detail-row">
             <span class="zoom-detail-label">Host Key</span>
-            <span class="zoom-detail-val">${a.zl.hostKey}</span>
+            <span class="zoom-detail-val">${a.zl.hostKey ? 'Available to authorized operators' : 'Set via window.ZOOM_LINK_SECRETS'}</span>
           </div>
         </div>
         <div class="zoom-card-footer">
@@ -4292,11 +4349,11 @@ function renderZoomTab() {
         </div>
         <div style="background:var(--surface2);border-radius:var(--r-sm);padding:10px 14px;">
           <div style="font-size:10px;font-weight:600;color:var(--text3);margin-bottom:3px;text-transform:uppercase;">Shared Password</div>
-          <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:600">Masai@190610</div>
+          <div style="font-family:'DM Mono',monospace;font-size:12px;font-weight:600">Managed securely (not shown in UI)</div>
         </div>
         <div style="background:var(--surface2);border-radius:var(--r-sm);padding:10px 14px;">
           <div style="font-size:10px;font-weight:600;color:var(--text3);margin-bottom:3px;text-transform:uppercase;">Shared Host Key</div>
-          <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:600">190610</div>
+          <div style="font-family:'DM Mono',monospace;font-size:12px;font-weight:600">Managed securely (not shown in UI)</div>
         </div>
       </div>
     </div>

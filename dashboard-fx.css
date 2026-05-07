@@ -513,3 +513,37 @@ td {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(59,91,219,0.12);
 }
+
+/* ─── Accessibility + Mail polish ────────────────── */
+.btn:focus-visible,
+.tab-btn:focus-visible,
+.prog-btn:focus-visible,
+.mail-item:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid rgba(59,91,219,0.45);
+  outline-offset: 2px;
+}
+
+.mail-list {
+  border-radius: 14px;
+  border: 1px solid rgba(59,91,219,0.08);
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(10px);
+}
+[data-theme="dark"] .mail-list {
+  background: rgba(28,33,40,0.75);
+  border-color: rgba(76,110,245,0.16);
+}
+
+.mail-item {
+  transition: background 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+.mail-item:hover {
+  transform: translateX(2px);
+}
+.mail-item.active {
+  border-color: rgba(59,91,219,0.22);
+  box-shadow: inset 3px 0 0 #4c6ef5;
+}
